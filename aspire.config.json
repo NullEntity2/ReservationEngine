@@ -1,0 +1,6 @@
+{
+  "appHost": {
+    "path": "ReservationEngine.AppHost/ReservationEngine.AppHost.csproj"
+  },
+  "channel": "stable"
+}

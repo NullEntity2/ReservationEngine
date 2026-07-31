@@ -1,0 +1,120 @@
+.screen {
+    margin: 2rem auto 1rem;
+    max-width: 600px;
+    padding: 0.5rem;
+    text-align: center;
+    color: #6c757d;
+    background: linear-gradient(to bottom, #dee2e6, transparent);
+    border-radius: 50% / 100% 100% 0 0;
+    letter-spacing: 0.3rem;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+}
+
+.legend {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+}
+
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.seat-swatch {
+    display: inline-block;
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: 0.2rem;
+}
+
+.seat-swatch.available {
+    background-color: #e9ecef;
+    border: 1px solid #adb5bd;
+}
+
+.seat-swatch.selected {
+    background-color: #0d6efd;
+}
+
+.seat-swatch.taken {
+    background-color: #ced4da;
+}
+
+.seat-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    align-items: center;
+}
+
+.seat-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.row-label {
+    width: 1.2rem;
+    text-align: center;
+    font-weight: 600;
+    color: #6c757d;
+}
+
+.seat {
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    font-size: 0.75rem;
+    line-height: 1;
+    border-radius: 0.3rem 0.3rem 0.5rem 0.5rem;
+    border: 1px solid #adb5bd;
+    background-color: #e9ecef;
+    color: #495057;
+    cursor: pointer;
+    transition: transform 0.1s ease, background-color 0.1s ease;
+}
+
+.seat:hover:not(:disabled) {
+    transform: translateY(-2px);
+    background-color: #dee2e6;
+}
+
+.seat.selected {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: #fff;
+}
+
+.seat.taken {
+    background-color: #ced4da;
+    border-color: #ced4da;
+    color: #adb5bd;
+    cursor: not-allowed;
+}
+
+.summary {
+    margin-top: 2rem;
+    text-align: center;
+    font-size: 1.05rem;
+}
+
+.status {
+    font-weight: 600;
+}
+
+.status-success {
+    color: #198754;
+}
+
+.status-error {
+    color: #dc3545;
+}
+
+.summary .btn {
+    margin-top: 0.5rem;
+}

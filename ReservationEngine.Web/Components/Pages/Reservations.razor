@@ -1,0 +1,144 @@
+@page "/reservations"
+@rendermode InteractiveServer
+@inject SeatReservationApiClient SeatApi
+
+<PageTitle>Reservations</PageTitle>
+
+<h1>Reserve Your Seats</h1>
+<p>Pick your seats for the showing below, then submit to reserve them.</p>
+
+@if (takenSeats is null)
+{
+    <p><em>Loading seat map...</em></p>
+}
+else
+{
+    <div class="screen">Screen</div>
+
+    <div class="legend">
+        <span class="legend-item"><span class="seat-swatch available"></span> Available</span>
+        <span class="legend-item"><span class="seat-swatch selected"></span> Selected</span>
+        <span class="legend-item"><span class="seat-swatch taken"></span> Taken</span>
+    </div>
+
+    <div class="seat-grid">
+        @foreach (var row in rows)
+        {
+            <div class="seat-row">
+                <span class="row-label">@row</span>
+                @for (var col = 1; col <= columnsPerRow; col++)
+                {
+                    var seatId = $"{row}{col}";
+                    var isTaken = takenSeats.Contains(seatId);
+                    var isSelected = selectedSeats.Contains(seatId);
+                    <button type="button"
+                            class="seat @(isTaken ? "taken" : isSelected ? "selected" : "available")"
+                            disabled="@(isTaken || isSubmitting)"
+                            @onclick="() => ToggleSeat(seatId)">
+                        @col
+                    </button>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="summary">
+        @if (selectedSeats.Count == 0)
+        {
+            <p><em>No seats selected.</em></p>
+        }
+        else
+        {
+            <p><strong>Selected seats:</strong> @string.Join(", ", selectedSeats.OrderBy(s => s))</p>
+            <p><strong>Total:</strong> @(selectedSeats.Count) x $12.00 = $@((selectedSeats.Count * 12).ToString("0.00"))</p>
+        }
+
+        @if (statusMessage is not null)
+        {
+            <p class="status @(statusIsError ? "status-error" : "status-success")">@statusMessage</p>
+        }
+
+        <button type="button"
+                class="btn btn-primary"
+                disabled="@(selectedSeats.Count == 0 || isSubmitting)"
+                @onclick="SubmitReservationAsync">
+            @(isSubmitting ? "Reserving..." : "Reserve Seats")
+        </button>
+    </div>
+}
+
+@code {
+    private readonly char[] rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    private readonly int columnsPerRow = 12;
+
+    private readonly HashSet<string> selectedSeats = [];
+
+    private HashSet<string>? takenSeats;
+    private bool isSubmitting;
+    private string? statusMessage;
+    private bool statusIsError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        takenSeats = await SeatApi.GetReservedSeatsAsync();
+    }
+
+    private void ToggleSeat(string seatId)
+    {
+        if (takenSeats!.Contains(seatId))
+        {
+            return;
+        }
+
+        if (!selectedSeats.Remove(seatId))
+        {
+            selectedSeats.Add(seatId);
+        }
+
+        statusMessage = null;
+    }
+
+    private async Task SubmitReservationAsync()
+    {
+        if (selectedSeats.Count == 0)
+        {
+            return;
+        }
+
+        isSubmitting = true;
+        statusMessage = null;
+
+        try
+        {
+            var result = await SeatApi.ReserveSeatsAsync(selectedSeats);
+
+            if (result.Succeeded)
+            {
+                var confirmedSeats = selectedSeats.OrderBy(s => s).ToArray();
+                foreach (var seatId in confirmedSeats)
+                {
+                    takenSeats!.Add(seatId);
+                }
+                selectedSeats.Clear();
+
+                statusIsError = false;
+                statusMessage = $"Reserved seats: {string.Join(", ", confirmedSeats)}. Enjoy the show!";
+            }
+            else
+            {
+                foreach (var seatId in result.ConflictingSeats)
+                {
+                    takenSeats!.Add(seatId);
+                    selectedSeats.Remove(seatId);
+                }
+
+                statusIsError = true;
+                statusMessage = $"Sorry, these seats were just taken: {string.Join(", ", result.ConflictingSeats)}. Please choose again.";
+            }
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

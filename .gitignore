@@ -1,0 +1,15 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+
+## Rider / ReSharper
+.idea/
+*.sln.iml
+
+## OS
+.DS_Store
+
+## Local tooling
+.claude/
