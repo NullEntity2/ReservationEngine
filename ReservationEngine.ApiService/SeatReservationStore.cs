@@ -1,40 +1,56 @@
+using Microsoft.EntityFrameworkCore;
+
 namespace ReservationEngine.ApiService;
 
-public class SeatReservationStore
+public class SeatReservationStore(ReservationContext context)
 {
-    private readonly object gate = new();
-
-    private readonly HashSet<string> reservedSeats = new(StringComparer.OrdinalIgnoreCase)
+    public async Task<string[]> GetReservedSeatsAsync(CancellationToken cancellationToken = default)
     {
-        "A3", "A4", "B7", "C1", "C2", "C10", "D5", "D6", "D7",
-        "E9", "F2", "F3", "G11", "G12", "H1", "H8"
-    };
-
-    public string[] GetReservedSeats()
-    {
-        lock (gate)
-        {
-            return [.. reservedSeats];
-        }
+        return await context.SeatReservations
+            .Select(s => s.SeatId)
+            .ToArrayAsync(cancellationToken);
     }
 
-    public SeatReservationOutcome TryReserve(IReadOnlyCollection<string> seatIds)
+    public async Task<SeatReservationOutcome> TryReserveAsync(IReadOnlyCollection<string> seatIds, CancellationToken cancellationToken = default)
     {
-        lock (gate)
+        var conflicts = await context.SeatReservations
+            .Where(s => seatIds.Contains(s.SeatId))
+            .Select(s => s.SeatId)
+            .ToArrayAsync(cancellationToken);
+
+        if (conflicts.Length > 0)
         {
-            var conflicts = seatIds.Where(reservedSeats.Contains).ToArray();
-            if (conflicts.Length > 0)
-            {
-                return new SeatReservationOutcome(false, conflicts);
-            }
-
-            foreach (var seatId in seatIds)
-            {
-                reservedSeats.Add(seatId);
-            }
-
-            return new SeatReservationOutcome(true, []);
+            return new SeatReservationOutcome(false, conflicts);
         }
+
+        var reservedAt = DateTimeOffset.UtcNow;
+        context.SeatReservations.AddRange(seatIds.Select(seatId => new SeatReservation
+        {
+            SeatId = seatId,
+            ReservedAt = reservedAt
+        }));
+
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // A concurrent request reserved one of these seats first; report the real conflicts.
+            foreach (var entry in context.ChangeTracker.Entries<SeatReservation>().ToArray())
+            {
+                entry.State = EntityState.Detached;
+            }
+
+            conflicts = await context.SeatReservations
+                .Where(s => seatIds.Contains(s.SeatId))
+                .Select(s => s.SeatId)
+                .ToArrayAsync(cancellationToken);
+
+            return new SeatReservationOutcome(false, conflicts);
+        }
+
+        return new SeatReservationOutcome(true, []);
     }
 }
 

@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using ReservationEngine.ApiService;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -7,12 +8,20 @@ builder.AddServiceDefaults();
 
 // Add services to the container.
 builder.Services.AddProblemDetails();
-builder.Services.AddSingleton<SeatReservationStore>();
+builder.Services.AddScoped<SeatReservationStore>();
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
+builder.AddNpgsqlDbContext<ReservationContext>(connectionName: "postgresdb");
+
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<ReservationContext>();
+    await context.Database.EnsureCreatedAsync();
+}
 
 // Configure the HTTP request pipeline.
 app.UseExceptionHandler();
@@ -40,17 +49,17 @@ app.MapGet("/weatherforecast", () =>
 })
 .WithName("GetWeatherForecast");
 
-app.MapGet("/api/seats/reserved", (SeatReservationStore store) => store.GetReservedSeats())
+app.MapGet("/api/seats/reserved", async (SeatReservationStore store) => await store.GetReservedSeatsAsync())
     .WithName("GetReservedSeats");
 
-app.MapPost("/api/reservations", (ReserveSeatsRequest request, SeatReservationStore store) =>
+app.MapPost("/api/reservations", async (ReserveSeatsRequest request, SeatReservationStore store) =>
 {
     if (request.SeatIds is not { Length: > 0 })
     {
         return Results.BadRequest("At least one seat must be selected.");
     }
 
-    var outcome = store.TryReserve(request.SeatIds);
+    var outcome = await store.TryReserveAsync(request.SeatIds);
 
     return outcome.Succeeded
         ? Results.Ok(new ReserveSeatsResponse(true, request.SeatIds, []))
