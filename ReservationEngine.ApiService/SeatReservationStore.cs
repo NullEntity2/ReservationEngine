@@ -4,17 +4,18 @@ namespace ReservationEngine.ApiService;
 
 public class SeatReservationStore(ReservationContext context)
 {
-    public async Task<string[]> GetReservedSeatsAsync(CancellationToken cancellationToken = default)
+    public async Task<string[]> GetReservedSeatsAsync(int theaterId, CancellationToken cancellationToken = default)
     {
         return await context.SeatReservations
+            .Where(s => s.TheaterId == theaterId)
             .Select(s => s.SeatId)
             .ToArrayAsync(cancellationToken);
     }
 
-    public async Task<SeatReservationOutcome> TryReserveAsync(IReadOnlyCollection<string> seatIds, CancellationToken cancellationToken = default)
+    public async Task<SeatReservationOutcome> TryReserveAsync(int theaterId, IReadOnlyCollection<string> seatIds, CancellationToken cancellationToken = default)
     {
         var conflicts = await context.SeatReservations
-            .Where(s => seatIds.Contains(s.SeatId))
+            .Where(s => s.TheaterId == theaterId && seatIds.Contains(s.SeatId))
             .Select(s => s.SeatId)
             .ToArrayAsync(cancellationToken);
 
@@ -26,6 +27,7 @@ public class SeatReservationStore(ReservationContext context)
         var reservedAt = DateTimeOffset.UtcNow;
         context.SeatReservations.AddRange(seatIds.Select(seatId => new SeatReservation
         {
+            TheaterId = theaterId,
             SeatId = seatId,
             ReservedAt = reservedAt
         }));
@@ -43,7 +45,7 @@ public class SeatReservationStore(ReservationContext context)
             }
 
             conflicts = await context.SeatReservations
-                .Where(s => seatIds.Contains(s.SeatId))
+                .Where(s => s.TheaterId == theaterId && seatIds.Contains(s.SeatId))
                 .Select(s => s.SeatId)
                 .ToArrayAsync(cancellationToken);
 

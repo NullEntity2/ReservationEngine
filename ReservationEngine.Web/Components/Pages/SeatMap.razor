@@ -1,18 +1,24 @@
-@page "/reservations"
+@page "/reservations/{TheaterId:int}"
 @rendermode InteractiveServer
 @inject SeatReservationApiClient SeatApi
+@inject TheaterApiClient TheaterApi
 
 <PageTitle>Reservations</PageTitle>
 
-<h1>Reserve Your Seats</h1>
-<p>Pick your seats for the showing below, then submit to reserve them.</p>
-
-@if (takenSeats is null)
+@if (notFound)
+{
+    <p>That theater doesn't exist. <a href="reservations">Back to theaters</a>.</p>
+}
+else if (theater is null || takenSeats is null)
 {
     <p><em>Loading seat map...</em></p>
 }
 else
 {
+    <p><a href="reservations">&larr; All theaters</a></p>
+    <h1>Reserve Your Seats — @theater.Name</h1>
+    <p>Pick your seats for the showing below, then submit to reserve them.</p>
+
     <div class="screen">Screen</div>
 
     <div class="legend">
@@ -26,7 +32,7 @@ else
         {
             <div class="seat-row">
                 <span class="row-label">@row</span>
-                @for (var col = 1; col <= columnsPerRow; col++)
+                @for (var col = 1; col <= theater.ColumnsPerRow; col++)
                 {
                     var seatId = $"{row}{col}";
                     var isTaken = takenSeats.Contains(seatId);
@@ -68,19 +74,35 @@ else
 }
 
 @code {
-    private readonly char[] rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-    private readonly int columnsPerRow = 12;
+    [Parameter]
+    public int TheaterId { get; set; }
 
     private readonly HashSet<string> selectedSeats = [];
 
+    private char[] rows = [];
+    private TheaterDto? theater;
     private HashSet<string>? takenSeats;
+    private bool notFound;
     private bool isSubmitting;
     private string? statusMessage;
     private bool statusIsError;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
-        takenSeats = await SeatApi.GetReservedSeatsAsync();
+        selectedSeats.Clear();
+        statusMessage = null;
+        takenSeats = null;
+        notFound = false;
+
+        theater = await TheaterApi.GetTheaterAsync(TheaterId);
+        if (theater is null)
+        {
+            notFound = true;
+            return;
+        }
+
+        rows = Enumerable.Range(0, theater.RowCount).Select(i => (char)('A' + i)).ToArray();
+        takenSeats = await SeatApi.GetReservedSeatsAsync(TheaterId);
     }
 
     private void ToggleSeat(string seatId)
@@ -110,7 +132,7 @@ else
 
         try
         {
-            var result = await SeatApi.ReserveSeatsAsync(selectedSeats);
+            var result = await SeatApi.ReserveSeatsAsync(TheaterId, selectedSeats);
 
             if (result.Succeeded)
             {

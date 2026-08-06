@@ -1,0 +1,38 @@
+@page "/reservations"
+@rendermode InteractiveServer
+@inject TheaterApiClient TheaterApi
+
+<PageTitle>Theaters</PageTitle>
+
+<h1>Choose a Theater</h1>
+<p>Select a theater to view its seat map and reserve seats.</p>
+
+@if (theaters is null)
+{
+    <p><em>Loading theaters...</em></p>
+}
+else if (theaters.Length == 0)
+{
+    <p><em>No theaters are available.</em></p>
+}
+else
+{
+    <div class="theater-list">
+        @foreach (var theater in theaters)
+        {
+            <a class="theater-card" href="@($"reservations/{theater.Id}")">
+                <span class="theater-name">@theater.Name</span>
+                <span class="theater-meta">@theater.RowCount rows &times; @theater.ColumnsPerRow seats</span>
+            </a>
+        }
+    </div>
+}
+
+@code {
+    private TheaterDto[]? theaters;
+
+    protected override async Task OnInitializedAsync()
+    {
+        theaters = await TheaterApi.GetTheatersAsync();
+    }
+}

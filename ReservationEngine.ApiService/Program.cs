@@ -9,6 +9,7 @@ builder.AddServiceDefaults();
 // Add services to the container.
 builder.Services.AddProblemDetails();
 builder.Services.AddScoped<SeatReservationStore>();
+builder.Services.AddScoped<TheaterStore>();
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
@@ -49,17 +50,39 @@ app.MapGet("/weatherforecast", () =>
 })
 .WithName("GetWeatherForecast");
 
-app.MapGet("/api/seats/reserved", async (SeatReservationStore store) => await store.GetReservedSeatsAsync())
-    .WithName("GetReservedSeats");
+app.MapGet("/api/theaters", async (TheaterStore store) => await store.GetTheatersAsync())
+    .WithName("GetTheaters");
 
-app.MapPost("/api/reservations", async (ReserveSeatsRequest request, SeatReservationStore store) =>
+app.MapGet("/api/theaters/{theaterId:int}", async (int theaterId, TheaterStore store) =>
+{
+    var theater = await store.GetTheaterAsync(theaterId);
+    return theater is not null ? Results.Ok(theater) : Results.NotFound();
+})
+.WithName("GetTheater");
+
+app.MapGet("/api/theaters/{theaterId:int}/seats/reserved", async (int theaterId, TheaterStore theaterStore, SeatReservationStore seatStore) =>
+{
+    var theater = await theaterStore.GetTheaterAsync(theaterId);
+    return theater is not null
+        ? Results.Ok(await seatStore.GetReservedSeatsAsync(theaterId))
+        : Results.NotFound();
+})
+.WithName("GetReservedSeats");
+
+app.MapPost("/api/theaters/{theaterId:int}/reservations", async (int theaterId, ReserveSeatsRequest request, TheaterStore theaterStore, SeatReservationStore seatStore) =>
 {
     if (request.SeatIds is not { Length: > 0 })
     {
         return Results.BadRequest("At least one seat must be selected.");
     }
 
-    var outcome = await store.TryReserveAsync(request.SeatIds);
+    var theater = await theaterStore.GetTheaterAsync(theaterId);
+    if (theater is null)
+    {
+        return Results.NotFound();
+    }
+
+    var outcome = await seatStore.TryReserveAsync(theaterId, request.SeatIds);
 
     return outcome.Succeeded
         ? Results.Ok(new ReserveSeatsResponse(true, request.SeatIds, []))
